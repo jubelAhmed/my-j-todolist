@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>todo</title>
+    <link
+      rel="stylesheet"
+      href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css"
+      integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO"
+      crossorigin="anonymous"
+    />
+  </head>
+  <body>
+    <div class="container">
+      <div class="row">
+        <div class="col-lg-2"></div>
+        <div class="col-lg-8">
+          <form id="form">
+            <div class="form-group">
+              <label for="todoUserInput">TODO</label>
+              <input
+                type="text"
+                class="form-control"
+                id="todoUserInput"
+                aria-describedby="emailHelp"
+                placeholder="Todo"
+              />
+              <button type="submit" class="btn btn-primary">Create</button>
+            </div>
+          </form>
+        </div>
+        <div class="col-lg-2"></div>
+      </div>
+      <div class="row">
+        <div class="col-lg-2"></div>
+        <div class="col-lg-8"><ul class="list-group" id="display"></ul></div>
+        <div class="col-lg-2"></div>
+      </div>
+    </div>
+
+    <!-- js -->
+    <script
+      src="https://code.jquery.com/jquery-3.3.1.slim.min.js"
+      integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js"
+      integrity="sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js"
+      integrity="sha384-ChfqqxuZUCnJSK3+MXmPNIyE6ZbWh2IMqE241rYiqJxyMiZ6OW/JmZQ5stwEULTy"
+      crossorigin="anonymous"
+    ></script>
+
+    <script>
+      $(document).ready(() => {
+        const display = $("#display");
+        const form = $("#form");
+        const todoUserInput = $("#todoUserInput");
+
+        const getTodos = () => {
+          fetch("/getTodos", { method: "get" })
+            .then(response => {
+              return response.json();
+            })
+            .then(data => {
+              console.log(data);
+              displayTodos(data);
+            });
+        };
+
+        getTodos();
+
+        form.submit(e => {
+          e.preventDefault();
+
+          fetch("/", {
+            method: "POST",
+            body: JSON.stringify({ todo: todoUserInput.val() }),
+            headers: {
+              "Content-Type": "application/json"
+            }
+          })
+            .then(response => {
+              return response.json();
+            })
+            .then(data => {
+              if (data.result.ok == 1 && data.result.n == 1) {
+                let ids = bulidIDS(data.document);
+                display.append(buildTemplate(data.document, ids));
+                editTodo(data.document, ids.todoID, ids.editID);
+                deleteTodo(data.document, ids.listItemID, ids.deleteID);
+              }
+              resetTodosInput();
+            })
+            .catch(function(res) {
+              console.log(res);
+            });
+        });
+
+        const resetTodosInput = () => {
+          todoUserInput.val("");
+        };
+
+        const editTodo = (todo, todoId, editId) => {
+          const editBtn = $(`#${editId}`);
+          editBtn.click(() => {
+            fetch(`/${todo._id}`, {
+              method: "PUT",
+              body: JSON.stringify({ todo: todoUserInput.val() }),
+              headers: {
+                "Content-Type": "application/json"
+              }
+            })
+              .then(response => {
+                return response.json();
+              })
+              .then(data => {
+                if (data.ok == 1) {
+                  console.log("mara");
+                  let todoIndex = $(`#${todoId}`);
+
+                  todoIndex.html(data.value.todo);
+                }
+              });
+          });
+        };
+
+        const deleteTodo = (todo, listItemID, deleteID) => {
+          let deleteBtn = $(`#${deleteID}`);
+
+          deleteBtn.click(() => {
+            fetch(`/${todo._id}`, {
+              method: "delete"
+            })
+              .then(response => {
+                return response.json();
+              })
+              .then(data => {
+                if (data.ok == 1) {
+                  $(`#${listItemID}`).remove();
+                }
+              });
+          });
+        };
+
+        const bulidIDS = todo => {
+          return {
+            editID: "edit_" + todo._id,
+            deleteID: "delete_" + todo._id,
+            listItemID: "listItem_" + todo._id,
+            todoID: "todo_" + todo._id
+          };
+        };
+
+        const buildTemplate = (todo, ids) => {
+          return `<li class="list-group-item" id="${ids.listItemID}">
+                    <div class="row">
+                        <div class="col-md-4" id="${ids.todoID}">
+                                ${todo.todo}
+                            </div>
+                        <div class="col-md-4">
+
+                        </div>
+                        <div class="col-md-4 text-right">
+                             <button type="submit" class="btn btn-secondary" id="${
+                               ids.editID
+                             }" >Edit</button>
+                             <button type="submit" class="btn btn-danger" id="${
+                               ids.deleteID
+                             }" >Delete</button>
+                        </div>
+                    </div>
+                </li>`;
+        };
+
+        const displayTodos = data => {
+          data.forEach(todo => {
+            let ids = bulidIDS(todo);
+            console.log(ids);
+            display.append(buildTemplate(todo, ids));
+            editTodo(todo, ids.todoID, ids.editID);
+            deleteTodo(todo, ids.listItemID, ids.deleteID);
+          });
+        };
+      });
+    </script>
+  </body>
+</html>
